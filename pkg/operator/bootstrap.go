@@ -199,6 +199,18 @@ func appendManifestsByPlatform(manifests []manifest, infra *configv1.Infrastruct
 		manifests = getPlatformManifests(manifests, strings.ToLower(string(configv1.NutanixPlatformType)), lbType)
 	}
 
+	if infra.Status.PlatformStatus.External != nil {
+		// External allows a user-managed load balancer by leaving the VIPs in PlatformStatus empty,
+		// mirroring vSphere. In that case we do not deploy keepalived/haproxy/coredns.
+		if len(infra.Status.PlatformStatus.External.APIServerInternalIPs) == 0 {
+			return manifests
+		}
+		if infra.Status.PlatformStatus.External.LoadBalancer != nil {
+			lbType = infra.Status.PlatformStatus.External.LoadBalancer.Type
+		}
+		manifests = getPlatformManifests(manifests, strings.ToLower(string(configv1.ExternalPlatformType)), lbType)
+	}
+
 	if infra.Status.PlatformStatus.GCP != nil {
 		// Generate just the CoreDNS manifests for the GCP platform only when the DNSType is `ClusterHosted`.
 		if infra.Status.PlatformStatus.GCP.CloudLoadBalancerConfig != nil && infra.Status.PlatformStatus.GCP.CloudLoadBalancerConfig.DNSType == configv1.ClusterHostedDNSType {

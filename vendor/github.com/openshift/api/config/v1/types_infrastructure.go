@@ -433,6 +433,27 @@ type CloudControllerManagerStatus struct {
 	State CloudControllerManagerState `json:"state"`
 }
 
+// ExternalPlatformLoadBalancer defines the load balancer used by the cluster on External platform.
+// +union
+type ExternalPlatformLoadBalancer struct {
+	// type defines the type of load balancer used by the cluster on External platform
+	// which can be a user-managed or openshift-managed load balancer
+	// that is to be used for the OpenShift API and Ingress endpoints.
+	// When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing
+	// defined in the machine config operator will be deployed.
+	// When set to UserManaged these static pods will not be deployed and it is expected that
+	// the load balancer is configured out of band by the deployer.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default.
+	// The default value is OpenShiftManagedDefault.
+	// +default="OpenShiftManagedDefault"
+	// +kubebuilder:default:="OpenShiftManagedDefault"
+	// +kubebuilder:validation:Enum:="OpenShiftManagedDefault";"UserManaged"
+	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="type is immutable once set"
+	// +optional
+	// +unionDiscriminator
+	Type PlatformLoadBalancerType `json:"type,omitempty"`
+}
+
 // ExternalPlatformStatus holds the current status of the generic External infrastructure provider.
 // +kubebuilder:validation:XValidation:rule="has(self.cloudControllerManager) == has(oldSelf.cloudControllerManager)",message="cloudControllerManager may not be added or removed once set"
 type ExternalPlatformStatus struct {
@@ -441,6 +462,57 @@ type ExternalPlatformStatus struct {
 	// and no extra initialization from the cloud controller manager is expected.
 	// +optional
 	CloudControllerManager CloudControllerManagerStatus `json:"cloudControllerManager"`
+
+	// apiServerInternalIPs are the IP addresses to contact the Kubernetes API
+	// server that can be used by components inside the cluster, like kubelets
+	// using the infrastructure rather than Kubernetes networking. These are the
+	// IPs for a self-hosted load balancer in front of the API servers. In dual
+	// stack clusters this list contains two IPs otherwise only one.
+	//
+	// +kubebuilder:validation:Format=ip
+	// +kubebuilder:validation:MaxItems=2
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (size(self) == 2 && isIP(self[0]) && isIP(self[1]) ? ip(self[0]).family() != ip(self[1]).family() : true)",message="apiServerInternalIPs must contain at most one IPv4 address and at most one IPv6 address"
+	// +listType=atomic
+	// +optional
+	APIServerInternalIPs []string `json:"apiServerInternalIPs"`
+
+	// ingressIPs are the external IPs which route to the default ingress
+	// controller. The IPs are suitable targets of a wildcard DNS record used to
+	// resolve default route host names. In dual stack clusters this list
+	// contains two IPs otherwise only one.
+	//
+	// +kubebuilder:validation:Format=ip
+	// +kubebuilder:validation:MaxItems=2
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (size(self) == 2 && isIP(self[0]) && isIP(self[1]) ? ip(self[0]).family() != ip(self[1]).family() : true)",message="ingressIPs must contain at most one IPv4 address and at most one IPv6 address"
+	// +listType=atomic
+	// +optional
+	IngressIPs []string `json:"ingressIPs"`
+
+	// loadBalancer defines how the load balancer used by the cluster is configured.
+	// +default={"type": "OpenShiftManagedDefault"}
+	// +kubebuilder:default={"type": "OpenShiftManagedDefault"}
+	// +optional
+	LoadBalancer *ExternalPlatformLoadBalancer `json:"loadBalancer,omitempty"`
+
+	// dnsRecordsType determines whether records for api, api-int, and ingress
+	// are provided by the internal DNS service or externally.
+	// Allowed values are `Internal`, `External`, and omitted.
+	// When set to `Internal`, records are provided by the internal infrastructure and
+	// no additional user configuration is required for the cluster to function.
+	// When set to `External`, records are not provided by the internal infrastructure
+	// and must be configured by the user on a DNS server outside the cluster.
+	// This value may only be set when loadBalancer.type is set to UserManaged.
+	// When omitted, the current default is `Internal`.
+	// +openshift:enable:FeatureGate=OnPremDNSRecords
+	// +optional
+	DNSRecordsType DNSRecordsType `json:"dnsRecordsType,omitempty"`
+
+	// machineNetworks are IP networks used to connect all the OpenShift cluster nodes.
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x == y))"
+	// +optional
+	MachineNetworks []CIDR `json:"machineNetworks"`
 }
 
 // PlatformStatus holds the current status specific to the underlying infrastructure provider

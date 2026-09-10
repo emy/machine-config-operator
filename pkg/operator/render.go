@@ -266,6 +266,8 @@ func onPremPlatformShortName(cfg mcfgv1.ControllerConfigSpec) interface{} {
 			return "vsphere"
 		case configv1.NutanixPlatformType:
 			return "nutanix"
+		case configv1.ExternalPlatformType:
+			return "external"
 		default:
 			return ""
 		}
@@ -293,6 +295,13 @@ func onPremPlatformIngressIP(cfg mcfgv1.ControllerConfigSpec) (interface{}, erro
 			return nil, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.IngressIPs[0], nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil &&
+				len(cfg.Infra.Status.PlatformStatus.External.IngressIPs) > 0 {
+				return cfg.Infra.Status.PlatformStatus.External.IngressIPs[0], nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return nil, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for Ingress IP")
 		}
@@ -317,6 +326,12 @@ func onPremPlatformIngressIPs(cfg mcfgv1.ControllerConfigSpec) (interface{}, err
 			return []string{}, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.IngressIPs, nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				return cfg.Infra.Status.PlatformStatus.External.IngressIPs, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return []string{}, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for Ingress IP")
 		}
@@ -344,6 +359,13 @@ func onPremPlatformAPIServerInternalIP(cfg mcfgv1.ControllerConfigSpec) (interfa
 			return nil, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.APIServerInternalIPs[0], nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil &&
+				len(cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs) > 0 {
+				return cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs[0], nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return nil, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for API Server Internal IP")
 		}
@@ -368,6 +390,12 @@ func onPremPlatformAPIServerInternalIPs(cfg mcfgv1.ControllerConfigSpec) (interf
 			return []string{}, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.APIServerInternalIPs, nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				return cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return []string{}, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for API Server Internal IP")
 		}

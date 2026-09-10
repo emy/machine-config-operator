@@ -481,6 +481,8 @@ func onPremPlatformShortName(cfg RenderConfig) interface{} {
 			return "vsphere"
 		case configv1.NutanixPlatformType:
 			return "nutanix"
+		case configv1.ExternalPlatformType:
+			return "external"
 		default:
 			return ""
 		}
@@ -514,6 +516,15 @@ func onPremPlatformIngressIP(cfg RenderConfig) (interface{}, error) {
 			return nil, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.IngressIPs[0], nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				if len(cfg.Infra.Status.PlatformStatus.External.IngressIPs) > 0 {
+					return cfg.Infra.Status.PlatformStatus.External.IngressIPs[0], nil
+				}
+				return nil, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return nil, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for Ingress IP")
 		}
@@ -541,6 +552,12 @@ func onPremPlatformIngressIPs(cfg RenderConfig) (interface{}, error) {
 			return []string{}, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.IngressIPs, nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				return cfg.Infra.Status.PlatformStatus.External.IngressIPs, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return []string{}, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for Ingress IP")
 		}
@@ -574,6 +591,15 @@ func onPremPlatformAPIServerInternalIP(cfg RenderConfig) (interface{}, error) {
 			return nil, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.APIServerInternalIPs[0], nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				if len(cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs) > 0 {
+					return cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs[0], nil
+				}
+				return nil, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return nil, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for API Server Internal IP")
 		}
@@ -601,6 +627,12 @@ func onPremPlatformAPIServerInternalIPs(cfg RenderConfig) (interface{}, error) {
 			return []string{}, nil
 		case configv1.NutanixPlatformType:
 			return cfg.Infra.Status.PlatformStatus.Nutanix.APIServerInternalIPs, nil
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				return cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs, nil
+			}
+			// External status may be unpopulated (user-managed LB). Not an error.
+			return []string{}, nil
 		default:
 			return nil, fmt.Errorf("invalid platform for API Server Internal IP")
 		}
@@ -627,7 +659,7 @@ func existsDir(path string) (bool, error) {
 
 func onPremPlatform(platformString configv1.PlatformType) bool {
 	switch platformString {
-	case configv1.BareMetalPlatformType, configv1.OvirtPlatformType, configv1.OpenStackPlatformType, configv1.VSpherePlatformType, configv1.NutanixPlatformType:
+	case configv1.BareMetalPlatformType, configv1.OvirtPlatformType, configv1.OpenStackPlatformType, configv1.VSpherePlatformType, configv1.NutanixPlatformType, configv1.ExternalPlatformType:
 		return true
 	default:
 		return false
@@ -715,6 +747,20 @@ func isOpenShiftManagedDefaultLB(cfg RenderConfig) bool {
 				}
 				return lbType == configv1.LoadBalancerTypeOpenShiftManagedDefault
 			}
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				// External allows a user-managed load balancer by leaving the VIPs in PlatformStatus empty,
+				// mirroring vSphere. In that case we do not deploy HAProxy, Keepalived and CoreDNS.
+				if len(cfg.Infra.Status.PlatformStatus.External.APIServerInternalIPs) == 0 {
+					return false
+				}
+				if cfg.Infra.Status.PlatformStatus.External.LoadBalancer != nil {
+					lbType = cfg.Infra.Status.PlatformStatus.External.LoadBalancer.Type
+				}
+				return lbType == configv1.LoadBalancerTypeOpenShiftManagedDefault
+			}
+			// External status unpopulated: no VIPs to manage.
+			return false
 		default:
 			// If a new on-prem platform is newly supported, the default value of LoadBalancerType is internal.
 			return true
@@ -744,6 +790,10 @@ func dnsRecordsType(cfg RenderConfig) configv1.DNSRecordsType {
 			// context and falling through to the default is fine.
 			if cfg.Infra.Status.PlatformStatus.VSphere != nil {
 				return cfg.Infra.Status.PlatformStatus.VSphere.DNSRecordsType
+			}
+		case configv1.ExternalPlatformType:
+			if cfg.Infra.Status.PlatformStatus.External != nil {
+				return cfg.Infra.Status.PlatformStatus.External.DNSRecordsType
 			}
 		}
 	}

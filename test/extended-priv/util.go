@@ -557,7 +557,7 @@ func IsInstalledWithAssistedInstallerOrFail(oc *exutil.CLI) bool {
 // IsOnPremPlatform returns true if the platform is an on-prem platform
 func IsOnPremPlatform(platform string) bool {
 	switch platform {
-	case BaremetalPlatform, OvirtPlatform, OpenstackPlatform, VspherePlatform, NutanixPlatform:
+	case BaremetalPlatform, OvirtPlatform, OpenstackPlatform, VspherePlatform, NutanixPlatform, ExternalPlatform:
 		return true
 	default:
 		return false

@@ -437,6 +437,79 @@ func TestGetPaths(t *testing.T) {
 	}
 }
 
+func TestExternalPlatformOnPrem(t *testing.T) {
+	// onPremPlatform must classify External as on-prem so the on-prem templates render.
+	if !onPremPlatform(configv1.ExternalPlatformType) {
+		t.Fatalf("expected External to be classified as an on-prem platform")
+	}
+
+	newExternalConfig := func(external *configv1.ExternalPlatformStatus) *RenderConfig {
+		spec := &mcfgv1.ControllerConfigSpec{
+			Infra: &configv1.Infrastructure{
+				Status: configv1.InfrastructureStatus{
+					Platform: configv1.ExternalPlatformType,
+					PlatformStatus: &configv1.PlatformStatus{
+						Type:     configv1.ExternalPlatformType,
+						External: external,
+					},
+				},
+			},
+		}
+		return &RenderConfig{spec, `{"dummy":"dummy"}`, "dummy", nil, nil}
+	}
+
+	// Short name drives the openshift-<name>-infra namespace.
+	if got := onPremPlatformShortName(*newExternalConfig(&configv1.ExternalPlatformStatus{})); got != "external" {
+		t.Fatalf("onPremPlatformShortName = %v, want external", got)
+	}
+
+	// Managed default LB with VIPs populated -> deploy keepalived/haproxy/coredns.
+	managed := newExternalConfig(&configv1.ExternalPlatformStatus{
+		APIServerInternalIPs: []string{"192.168.1.5"},
+		IngressIPs:           []string{"192.168.1.6"},
+		LoadBalancer:         &configv1.ExternalPlatformLoadBalancer{Type: configv1.LoadBalancerTypeOpenShiftManagedDefault},
+		DNSRecordsType:       configv1.DNSRecordsTypeInternal,
+	})
+	if !isOpenShiftManagedDefaultLB(*managed) {
+		t.Fatalf("expected isOpenShiftManagedDefaultLB true for managed External LB with VIPs")
+	}
+	apiIPs, err := onPremPlatformAPIServerInternalIPs(*managed)
+	if err != nil {
+		t.Fatalf("onPremPlatformAPIServerInternalIPs error: %v", err)
+	}
+	if !reflect.DeepEqual(apiIPs, []string{"192.168.1.5"}) {
+		t.Fatalf("onPremPlatformAPIServerInternalIPs = %v, want [192.168.1.5]", apiIPs)
+	}
+	ingIPs, err := onPremPlatformIngressIPs(*managed)
+	if err != nil {
+		t.Fatalf("onPremPlatformIngressIPs error: %v", err)
+	}
+	if !reflect.DeepEqual(ingIPs, []string{"192.168.1.6"}) {
+		t.Fatalf("onPremPlatformIngressIPs = %v, want [192.168.1.6]", ingIPs)
+	}
+	if got := dnsRecordsType(*managed); got != configv1.DNSRecordsTypeInternal {
+		t.Fatalf("dnsRecordsType = %v, want Internal", got)
+	}
+
+	// User-managed LB -> do not deploy the load-balancing static pods.
+	userManaged := newExternalConfig(&configv1.ExternalPlatformStatus{
+		APIServerInternalIPs: []string{"192.168.1.5"},
+		LoadBalancer:         &configv1.ExternalPlatformLoadBalancer{Type: configv1.LoadBalancerTypeUserManaged},
+	})
+	if isOpenShiftManagedDefaultLB(*userManaged) {
+		t.Fatalf("expected isOpenShiftManagedDefaultLB false for user-managed External LB")
+	}
+
+	// Empty VIPs (user-managed by omission) -> not managed, and helpers must not error.
+	emptyVIPs := newExternalConfig(&configv1.ExternalPlatformStatus{})
+	if isOpenShiftManagedDefaultLB(*emptyVIPs) {
+		t.Fatalf("expected isOpenShiftManagedDefaultLB false for External with empty VIPs")
+	}
+	if _, err := onPremPlatformAPIServerInternalIPs(*emptyVIPs); err != nil {
+		t.Fatalf("onPremPlatformAPIServerInternalIPs on empty External VIPs should not error: %v", err)
+	}
+}
+
 func controllerConfigFromFile(path string) (*mcfgv1.ControllerConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

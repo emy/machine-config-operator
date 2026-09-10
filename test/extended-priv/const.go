@@ -69,6 +69,8 @@ const (
 	NonePlatform = "none"
 	// VspherePlatform value used to identify Vsphere infrastructure
 	VspherePlatform = "vsphere"
+	// ExternalPlatform value used to identify External infrastructure
+	ExternalPlatform = "external"
 	// AlibabaCloudPlatform value used to identify AlibabaCloud infrastructure
 	AlibabaCloudPlatform = "alibabacloud"
 
@@ -195,16 +197,17 @@ var (
 		OpenstackPlatform: "openshift-openstack-infra",
 		OvirtPlatform:     "openshift-ovirt-infra",
 		VspherePlatform:   "openshift-vsphere-infra",
+		ExternalPlatform:  "openshift-external-infra",
 	}
 
 	// Map with all available extensions and the packages they install
 	AllExtenstions = map[string][]string{
-		ipsecExtension:               {"NetworkManager-libreswan", "libreswan"},
-		usbguardExtension:            {"usbguard"},
-		kerberosExtension:            {"krb5-workstation", "libkadm5"},
-		kernelDevelExtension:         {"kernel-devel", "kernel-headers"},
+		ipsecExtension:       {"NetworkManager-libreswan", "libreswan"},
+		usbguardExtension:    {"usbguard"},
+		kerberosExtension:    {"krb5-workstation", "libkadm5"},
+		kernelDevelExtension: {"kernel-devel", "kernel-headers"},
 		// sandboxedContainersExtension: {"kata-containers"}, // Temporarily disabled until kata-containers builds are available again (MCO-2389)
-		sysstatExtension:             {"sysstat"},
+		sysstatExtension: {"sysstat"},
 	}
 
 	// OSImageStream constants

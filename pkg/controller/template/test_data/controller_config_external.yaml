@@ -26,3 +26,12 @@ spec:
         external:
           cloudControllerManager:
             state: "External"
+          apiServerInternalIPs:
+            - 10.0.0.1
+          ingressIPs:
+            - 10.0.0.2
+          loadBalancer:
+            type: "OpenShiftManagedDefault"
+  dns:
+    spec:
+      baseDomain: my-test-cluster.installer.team.coreos.systems
